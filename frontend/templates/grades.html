@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% block title %}Notas — SemestreApp{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="fw-bold mb-0">Notas</h2>
+  <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addGradeModal">
+    <i class="bi bi-plus-circle me-1"></i>Inserir Nota
+  </button>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-md-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h6 class="text-muted mb-3">Situação por Matéria</h6>
+        {% if averages %}
+          {% for avg in averages %}
+          <div class="mb-3 pb-2 border-bottom">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="fw-semibold small">{{ avg.subject_name }}</span>
+              <div class="d-flex align-items-center gap-1">
+                {% if avg.average is not none %}
+                  <span class="small fw-bold
+                    {% if avg.average >= 60 %}text-success
+                    {% elif avg.average >= 30 %}text-warning
+                    {% else %}text-danger{% endif %}">
+                    {{ "%.1f"|format(avg.average) }}
+                  </span>
+                  {% if avg.status == "aprovado" %}
+                    <span class="badge bg-success">Aprovado</span>
+                  {% elif avg.status == "aprovado_final" %}
+                    <span class="badge bg-success">Aprovado (Final)</span>
+                  {% elif avg.status == "final" %}
+                    <span class="badge bg-warning text-dark">Exame Final</span>
+                  {% elif avg.status == "reprovado_final" %}
+                    <span class="badge bg-danger">Reprovado (Final)</span>
+                  {% elif avg.status == "reprovado" %}
+                    <span class="badge bg-danger">Reprovado</span>
+                  {% endif %}
+                {% else %}
+                  <span class="badge bg-light text-dark border">
+                    {{ avg.nps_lancadas }}/{{ avg.nps_total }} NPs
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+
+            {% if avg.average is not none %}
+              <div class="progress mb-1" style="height:8px;">
+                <div class="progress-bar
+                  {% if avg.average >= 60 %}bg-success
+                  {% elif avg.average >= 30 %}bg-warning
+                  {% else %}bg-danger{% endif %}"
+                     style="width:{{ [avg.average, 100]|min }}%"></div>
+              </div>
+              {% if avg.status == "final" and avg.final_needed is not none %}
+              <div class="text-warning small mt-1">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Precisa de <strong>{{ "%.1f"|format(avg.final_needed) }}</strong> no Exame Final
+                <span class="text-muted">(média {{ "%.1f"|format(avg.average) }}+X)/2 &gt; 50</span>
+              </div>
+              {% elif avg.status in ["aprovado_final", "reprovado_final"] and avg.media_final is not none %}
+              <div class="{% if avg.status == 'aprovado_final' %}text-success{% else %}text-danger{% endif %} small mt-1">
+                <i class="bi bi-calculator me-1"></i>
+                Média final: <strong>{{ "%.1f"|format(avg.media_final) }}</strong>
+                ({{ "%.1f"|format(avg.average) }} + {{ "%.1f"|format(avg.nota_final) }}) ÷ 2
+              </div>
+              {% endif %}
+            {% else %}
+              <div class="progress mb-1" style="height:6px;">
+                <div class="progress-bar bg-info"
+                     style="width:{{ (avg.nps_lancadas / avg.nps_total * 100)|int if avg.nps_total > 0 else 0 }}%"></div>
+              </div>
+              {% if avg.impossivel_aprovar %}
+                <div class="text-danger small mt-1">
+                  <i class="bi bi-x-circle me-1"></i>Impossível atingir 60 com notas restantes
+                </div>
+              {% elif avg.min_necessaria is not none %}
+                <div class="text-info small mt-1">
+                  <i class="bi bi-arrow-right-circle me-1"></i>
+                  Precisa de <strong>{{ "%.1f"|format(avg.min_necessaria) }}</strong> nas NPs restantes para passar
+                </div>
+              {% endif %}
+            {% endif %}
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted">Nenhuma matéria encontrada.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="text-muted mb-0">Histórico de Notas</h6>
+          <form method="GET" class="d-flex gap-2">
+            <select name="subject_id" class="form-select form-select-sm" onchange="this.form.submit()">
+              <option value="">Todas as matérias</option>
+              {% for s in subjects %}
+              <option value="{{ s.id }}" {% if selected_subject == s.id|string %}selected{% endif %}>{{ s.name }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        </div>
+        {% if grades %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover">
+            <thead class="table-light">
+              <tr><th>Matéria</th><th>Tipo</th><th>Nota</th><th>Data</th><th></th></tr>
+            </thead>
+            <tbody>
+              {% for g in grades %}
+              <tr>
+                <td>{{ g.subject.name }}</td>
+                <td><span class="badge bg-secondary">{{ g.grade_type }}</span></td>
+                <td>
+                  <span class="badge {% if g.value >= 60 %}bg-success{% else %}bg-danger{% endif %}">
+                    {{ "%.1f"|format(g.value) }}
+                  </span>
+                </td>
+                <td>{{ g.date }}</td>
+                <td>
+                  <div class="d-inline-flex gap-1">
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary py-0 btn-editar-nota"
+                            data-id="{{ g.id }}"
+                            data-value="{{ g.value }}"
+                            data-type="{{ g.grade_type }}"
+                            data-date="{{ g.date }}"
+                            data-desc="{{ g.description or '' }}"
+                            data-subject="{{ g.subject_id }}">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                    <form method="POST" class="d-inline" onsubmit="return confirm('Remover nota?')">
+                      <input type="hidden" name="action" value="delete">
+                      <input type="hidden" name="grade_id" value="{{ g.id }}">
+                      <button class="btn btn-sm btn-outline-danger py-0" type="submit">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+          <p class="text-muted text-center py-3">Nenhuma nota encontrada.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Inserir Nota -->
+<div class="modal fade" id="addGradeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST">
+        <input type="hidden" name="action" id="gradeActionInput" value="create">
+        <input type="hidden" name="nota_id" id="notaIdHidden" value="">
+        <div class="modal-header">
+          <h5 class="modal-title" id="gradeModalTitulo">Inserir Nota</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Matéria *</label>
+            <select name="subject_id" id="gradeSubjectSelect" class="form-select" required>
+              <option value="">Selecione...</option>
+              {% for s in subjects %}
+              <option value="{{ s.id }}"
+                      data-num-exams="{{ s.num_exams }}"
+                      data-notas-lancadas="{{ notas_por_materia.get(s.id, []) | tojson | e }}">
+                {{ s.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Avaliação *</label>
+            <select name="grade_type" id="gradeTypeSelect" class="form-select" required disabled>
+              <option value="">Selecione a matéria primeiro</option>
+            </select>
+            <div id="gradeTypeHelp" class="form-text text-muted"></div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <label class="form-label">Nota (0–100) *</label>
+              <input type="number" name="value" class="form-control" step="0.1" min="0" max="100" required>
+            </div>
+            <div class="col">
+              <label class="form-label">Data *</label>
+              <input type="date" name="date" class="form-control" required>
+            </div>
+          </div>
+          <div class="mb-3 mt-3">
+            <label class="form-label">Observação</label>
+            <input type="text" name="description" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" id="gradeSubmitBtn" class="btn btn-success" disabled>Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+let editandoGradeType = null;
+
+const gradeSubjectSelect = document.getElementById('gradeSubjectSelect');
+
+gradeSubjectSelect.addEventListener('change', function () {
+  const typeSelect = document.getElementById('gradeTypeSelect');
+  const helpText = document.getElementById('gradeTypeHelp');
+  const submitBtn = document.getElementById('gradeSubmitBtn');
+  const opt = this.options[this.selectedIndex];
+  const numExams = parseInt(opt?.dataset?.numExams || '0');
+  let jaLancadas = [];
+  try { jaLancadas = JSON.parse(opt?.dataset?.notasLancadas || '[]'); } catch(e) {}
+
+  typeSelect.innerHTML = '';
+  helpText.textContent = '';
+
+  if (!this.value || numExams === 0) {
+    typeSelect.innerHTML = '<option value="">Selecione a matéria primeiro</option>';
+    typeSelect.disabled = true;
+    submitBtn.disabled = true;
+    return;
+  }
+
+  let todasLancadas = true;
+  for (let i = 1; i <= numExams; i++) {
+    const tipo = `NP${i}`;
+    const lancada = jaLancadas.includes(tipo) && tipo !== editandoGradeType;
+    if (!lancada) todasLancadas = false;
+    const o = document.createElement('option');
+    o.value = tipo;
+    o.textContent = lancada ? `${tipo} (já lançada)` : tipo;
+    o.disabled = lancada;
+    if (!lancada && !typeSelect.querySelector('option:not([disabled])')) o.selected = true;
+    typeSelect.appendChild(o);
+  }
+
+  // Opção Exame Final
+  const tipoFinal = 'Exame Final';
+  const finalLancado = jaLancadas.includes(tipoFinal) && tipoFinal !== editandoGradeType;
+  if (!finalLancado) todasLancadas = false;
+  const oFinal = document.createElement('option');
+  oFinal.value = tipoFinal;
+  oFinal.textContent = finalLancado ? 'Exame Final (já lançado)' : 'Exame Final';
+  oFinal.disabled = finalLancado;
+  typeSelect.appendChild(oFinal);
+
+  typeSelect.disabled = false;
+  if (todasLancadas) {
+    helpText.textContent = 'Todas as avaliações desta matéria já foram lançadas.';
+    submitBtn.disabled = true;
+  } else {
+    submitBtn.disabled = false;
+  }
+});
+
+// Botão "Inserir Nota" — resetar para modo criação
+document.querySelector('[data-bs-target="#addGradeModal"]').addEventListener('click', () => {
+  editandoGradeType = null;
+  document.getElementById('gradeModalTitulo').textContent = 'Inserir Nota';
+  document.getElementById('gradeActionInput').value = 'create';
+  document.getElementById('notaIdHidden').value = '';
+  document.getElementById('gradeSubmitBtn').textContent = 'Salvar';
+  gradeSubjectSelect.value = '';
+  gradeSubjectSelect.dispatchEvent(new Event('change'));
+  document.querySelector('[name="value"]').value = '';
+  document.querySelector('[name="date"]').value = '';
+  document.querySelector('[name="description"]').value = '';
+});
+
+// Botões de editar nota
+document.querySelectorAll('.btn-editar-nota').forEach(btn => {
+  btn.addEventListener('click', () => {
+    editandoGradeType = btn.dataset.type;
+    document.getElementById('gradeModalTitulo').textContent = 'Editar Nota';
+    document.getElementById('gradeActionInput').value = 'update';
+    document.getElementById('notaIdHidden').value = btn.dataset.id;
+    document.getElementById('gradeSubmitBtn').textContent = 'Atualizar';
+    document.getElementById('gradeSubmitBtn').disabled = false;
+
+    gradeSubjectSelect.value = btn.dataset.subject;
+    gradeSubjectSelect.dispatchEvent(new Event('change'));
+
+    // Após popular o dropdown, selecionar o tipo correto
+    setTimeout(() => {
+      document.getElementById('gradeTypeSelect').value = btn.dataset.type;
+    }, 0);
+
+    document.querySelector('[name="value"]').value = btn.dataset.value;
+    document.querySelector('[name="date"]').value = btn.dataset.date;
+    document.querySelector('[name="description"]').value = btn.dataset.desc;
+
+    new bootstrap.Modal(document.getElementById('addGradeModal')).show();
+  });
+});
+</script>
+{% endblock %}
