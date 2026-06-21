@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block title %}Calendário — SemestreApp{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="fw-bold mb-0">Calendário</h2>
+  <div class="d-flex align-items-center gap-2">
+    <a href="{{ url_for('calendar_view', year=prev_year, month=prev_month) }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-chevron-left"></i>
+    </a>
+    <span class="fw-semibold">{{ month_name }} {{ year }}</span>
+    <a href="{{ url_for('calendar_view', year=next_year, month=next_month) }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-chevron-right"></i>
+    </a>
+    <button class="btn btn-primary btn-sm ms-2" data-bs-toggle="modal" data-bs-target="#addEventModal">
+      <i class="bi bi-plus-circle me-1"></i>Novo Evento
+    </button>
+  </div>
+</div>
+
+<!-- Legenda -->
+<div class="d-flex gap-3 mb-3 small text-muted">
+  <span><span class="badge bg-danger me-1">P</span>Prova</span>
+  <span><span class="badge bg-primary me-1">R</span>Reposição</span>
+  <span><span class="badge bg-secondary me-1">O</span>Outro</span>
+  <span class="ms-3 px-2 py-1 rounded" style="background:#e8f0fe">Hoje</span>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-bordered mb-0 calendar-table">
+      <thead class="table-primary">
+        <tr>
+          {% for dia_nome in ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] %}
+          <th class="text-center">{{ dia_nome }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for semana in cal %}
+        <tr>
+          {% for dia in semana %}
+          <td class="calendar-cell {% if dia == today.day and month == today.month and year == today.year %}today-cell{% endif %}">
+            {% if dia != 0 %}
+              <div class="day-number {% if dia == today.day and month == today.month and year == today.year %}text-primary fw-bold{% endif %}">
+                {{ dia }}
+              </div>
+              {% if dia in exams_by_day %}
+                {% for evento in exams_by_day[dia] %}
+                  {% if evento.tipo_evento == "prova" %}
+                    {% set cor = "danger" %}{% set sigla = "P" %}
+                  {% elif evento.tipo_evento == "reposicao" %}
+                    {% set cor = "primary" %}{% set sigla = "R" %}
+                  {% else %}
+                    {% set cor = "secondary" %}{% set sigla = "O" %}
+                  {% endif %}
+                  <div class="exam-badge exam-{{ evento.tipo_evento }} d-flex align-items-center justify-content-between">
+                    <span class="text-truncate">
+                      <span class="badge bg-{{ cor }} me-1" style="font-size:0.6rem">{{ sigla }}</span>
+                      {{ evento.title }}
+                    </span>
+                    <form method="POST" class="d-inline ms-1" onsubmit="return confirm('Remover evento?')">
+                      <input type="hidden" name="action" value="delete">
+                      <input type="hidden" name="evento_id" value="{{ evento.id }}">
+                      <input type="hidden" name="year" value="{{ year }}">
+                      <input type="hidden" name="month" value="{{ month }}">
+                      <button type="submit" class="btn btn-link p-0 text-danger" style="font-size:0.7rem">
+                        <i class="bi bi-x"></i>
+                      </button>
+                    </form>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal: Novo Evento -->
+<div class="modal fade" id="addEventModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" id="eventForm">
+        <input type="hidden" name="action" value="create">
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month" value="{{ month }}">
+        <input type="hidden" name="title" id="eventTitleHidden">
+        <div class="modal-header">
+          <h5 class="modal-title">Novo Evento no Calendário</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Título automático (prova/reposição) -->
+          <div id="titleAutoBox" class="mb-3">
+            <label class="form-label">Título</label>
+            <div id="titleAutoDisplay" class="form-control bg-light text-muted fst-italic">
+              Selecione o tipo e a matéria
+            </div>
+          </div>
+          <!-- Título manual (outro) -->
+          <div id="titleManualBox" class="mb-3" style="display:none">
+            <label class="form-label">Título *</label>
+            <input type="text" id="titleManualInput" class="form-control" placeholder="Descreva o evento...">
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col">
+              <label class="form-label">Data *</label>
+              <input type="date" name="exam_date" class="form-control" required>
+            </div>
+            <div class="col">
+              <label class="form-label">Tipo *</label>
+              <select name="tipo_evento" id="tipoEventoSelect" class="form-select" required>
+                <option value="prova">🔴 Prova</option>
+                <option value="reposicao">🔵 Reposição</option>
+                <option value="outro">⚪ Outro</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="subjectBox" class="mb-3">
+            <label class="form-label">Matéria *</label>
+            <select name="subject_id" id="eventSubjectSelect" class="form-select">
+              <option value="">Selecione a matéria...</option>
+              {% for s in subjects %}
+              <option value="{{ s.id }}">{{ s.name }}</option>
+              {% endfor %}
+            </select>
+            <div id="subjectRequiredMsg" class="form-text text-danger" style="display:none">
+              Selecione uma matéria para continuar.
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Observação</label>
+            <input type="text" name="description" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" id="eventSaveBtn" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+const tipoSelect = document.getElementById('tipoEventoSelect');
+const subjectSelect = document.getElementById('eventSubjectSelect');
+const titleHidden = document.getElementById('eventTitleHidden');
+const titleAutoBox = document.getElementById('titleAutoBox');
+const titleAutoDisplay = document.getElementById('titleAutoDisplay');
+const titleManualBox = document.getElementById('titleManualBox');
+const titleManualInput = document.getElementById('titleManualInput');
+const subjectBox = document.getElementById('subjectBox');
+const subjectRequiredMsg = document.getElementById('subjectRequiredMsg');
+
+function atualizarModal() {
+  const tipo = tipoSelect.value;
+  const subjectOpt = subjectSelect.options[subjectSelect.selectedIndex];
+  const nomeSelecionado = subjectOpt && subjectOpt.value ? subjectOpt.text : '';
+
+  if (tipo === 'outro') {
+    titleAutoBox.style.display = 'none';
+    titleManualBox.style.display = '';
+    subjectBox.style.display = 'none';
+    subjectSelect.required = false;
+    titleHidden.value = titleManualInput.value;
+  } else {
+    titleAutoBox.style.display = '';
+    titleManualBox.style.display = 'none';
+    subjectBox.style.display = '';
+    subjectSelect.required = true;
+    if (nomeSelecionado) {
+      titleAutoDisplay.textContent = nomeSelecionado;
+      titleAutoDisplay.classList.remove('text-muted', 'fst-italic');
+      titleHidden.value = nomeSelecionado;
+    } else {
+      titleAutoDisplay.textContent = 'Selecione a matéria abaixo';
+      titleAutoDisplay.classList.add('text-muted', 'fst-italic');
+      titleHidden.value = '';
+    }
+  }
+}
+
+tipoSelect.addEventListener('change', atualizarModal);
+subjectSelect.addEventListener('change', atualizarModal);
+titleManualInput.addEventListener('input', function () {
+  titleHidden.value = this.value;
+});
+
+document.getElementById('eventForm').addEventListener('submit', function (e) {
+  const tipo = tipoSelect.value;
+  if (tipo !== 'outro' && !subjectSelect.value) {
+    e.preventDefault();
+    subjectRequiredMsg.style.display = '';
+    return;
+  }
+  subjectRequiredMsg.style.display = 'none';
+  if (tipo === 'outro') {
+    titleHidden.value = titleManualInput.value;
+  }
+});
+
+// Inicializar estado
+atualizarModal();
+</script>
+{% endblock %}

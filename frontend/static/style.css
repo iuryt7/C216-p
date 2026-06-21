@@ -1,0 +1,64 @@
+body {
+  background-color: #f8f9fa;
+}
+
+.color-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Calendar */
+.calendar-table th,
+.calendar-table td {
+  width: 14.28%;
+  min-height: 90px;
+  vertical-align: top;
+  padding: 6px;
+}
+
+.calendar-cell {
+  height: 90px;
+  overflow: hidden;
+}
+
+.today-cell {
+  background-color: #e8f0fe;
+}
+
+.day-number {
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+.exam-badge {
+  font-size: 0.72rem;
+  background: #fff3cd;
+  border-left: 2px solid #dc3545;
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Schedule */
+.schedule-col {
+  min-width: 110px;
+  vertical-align: top;
+  padding: 8px;
+}
+
+.schedule-entry {
+  background: #f0f4ff;
+  border-radius: 4px;
+  padding: 4px 6px;
+}
+
+/* Cards */
+.card {
+  border-radius: 12px;
+}

@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}Horários — SemestreApp{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="fw-bold mb-0">Grade Horária</h2>
+  <div class="d-flex gap-2">
+    <div class="dropdown">
+      <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+        <i class="bi bi-calendar3 me-1"></i>{{ semestre_label }}
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        {% for s in semestres %}
+          {% if loop.index == 2 and semestres | length > 1 %}<li><hr class="dropdown-divider"></li>{% endif %}
+          <li>
+            <a class="dropdown-item {% if s.key == semestre_key %}active{% endif %}"
+               href="{{ url_for('schedule', semestre_key=s.key) }}">
+              {% if s.key == "ativo" %}<i class="bi bi-circle-fill me-1 text-success" style="font-size:.5rem;vertical-align:middle"></i>{% endif %}
+              {{ s.label }}
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% if not is_historico %}
+    <button class="btn btn-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
+      <i class="bi bi-plus-circle me-1"></i>Adicionar Horário
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+{% if is_historico %}
+<div class="alert alert-secondary d-flex align-items-center gap-2 py-2 mb-3">
+  <i class="bi bi-archive fs-5"></i>
+  <span>Visualizando grade de <strong>{{ semestre_label }}</strong> — modo somente leitura.</span>
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-bordered mb-0">
+        <thead class="table-secondary">
+          <tr>
+            {% for day in days %}
+            <th class="text-center small fw-semibold">{{ day }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+
+        <!-- Manhã: antes das 12h -->
+        <tbody>
+          <tr>
+            <th colspan="7" class="text-center small py-1" style="background:#e8f4f8;color:#0077aa;letter-spacing:.05em">
+              🌅 Manhã (antes das 12h)
+            </th>
+          </tr>
+          <tr>
+            {% for i in range(7) %}
+            <td class="align-top schedule-col">
+              {% if morning[i] %}
+                {% for entry in morning[i] %}
+                <div class="schedule-entry mb-1" style="border-left: 3px solid {{ entry.subject.color_hex }}">
+                  <div class="fw-semibold small">{{ entry.subject.name }}</div>
+                  <div class="text-muted" style="font-size:0.75rem">
+                    {{ entry.start_time[:5] }}–{{ entry.end_time[:5] }}
+                  </div>
+                  {% if not is_historico %}
+                  <form method="POST" class="d-inline">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="schedule_id" value="{{ entry.id }}">
+                    <button class="btn btn-link btn-sm text-danger p-0" type="submit"
+                            onclick="return confirm('Remover?')">
+                      <i class="bi bi-x-circle"></i>
+                    </button>
+                  </form>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              {% else %}
+                <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+        </tbody>
+
+        <!-- Tarde: 12h–18h -->
+        <tbody>
+          <tr>
+            <th colspan="7" class="text-center small py-1" style="background:#fff8e1;color:#cc8800;letter-spacing:.05em">
+              ☀️ Tarde (12h–18h)
+            </th>
+          </tr>
+          <tr>
+            {% for i in range(7) %}
+            <td class="align-top schedule-col">
+              {% if afternoon[i] %}
+                {% for entry in afternoon[i] %}
+                <div class="schedule-entry mb-1" style="border-left: 3px solid {{ entry.subject.color_hex }}">
+                  <div class="fw-semibold small">{{ entry.subject.name }}</div>
+                  <div class="text-muted" style="font-size:0.75rem">
+                    {{ entry.start_time[:5] }}–{{ entry.end_time[:5] }}
+                  </div>
+                  {% if not is_historico %}
+                  <form method="POST" class="d-inline">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="schedule_id" value="{{ entry.id }}">
+                    <button class="btn btn-link btn-sm text-danger p-0" type="submit"
+                            onclick="return confirm('Remover?')">
+                      <i class="bi bi-x-circle"></i>
+                    </button>
+                  </form>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              {% else %}
+                <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+        </tbody>
+
+        <!-- Noite: 18h+ -->
+        <tbody>
+          <tr>
+            <th colspan="7" class="text-center small py-1" style="background:#ede7f6;color:#6a1b9a;letter-spacing:.05em">
+              🌙 Noite (a partir das 18h)
+            </th>
+          </tr>
+          <tr>
+            {% for i in range(7) %}
+            <td class="align-top schedule-col">
+              {% if evening[i] %}
+                {% for entry in evening[i] %}
+                <div class="schedule-entry mb-1" style="border-left: 3px solid {{ entry.subject.color_hex }}">
+                  <div class="fw-semibold small">{{ entry.subject.name }}</div>
+                  <div class="text-muted" style="font-size:0.75rem">
+                    {{ entry.start_time[:5] }}–{{ entry.end_time[:5] }}
+                  </div>
+                  {% if not is_historico %}
+                  <form method="POST" class="d-inline">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="schedule_id" value="{{ entry.id }}">
+                    <button class="btn btn-link btn-sm text-danger p-0" type="submit"
+                            onclick="return confirm('Remover?')">
+                      <i class="bi bi-x-circle"></i>
+                    </button>
+                  </form>
+                  {% endif %}
+                </div>
+                {% endfor %}
+              {% else %}
+                <span class="text-muted small">—</span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Adicionar Horário -->
+<div class="modal fade" id="addScheduleModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST">
+        <input type="hidden" name="action" value="create">
+        <div class="modal-header">
+          <h5 class="modal-title">Adicionar Horário</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Matéria *</label>
+            <select name="subject_id" class="form-select" required>
+              <option value="">Selecione...</option>
+              {% for s in subjects %}
+              <option value="{{ s.id }}">{{ s.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Dia da semana *</label>
+            <select name="day_of_week" class="form-select" required>
+              {% for day in days %}
+              <option value="{{ loop.index0 }}">{{ day }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="row">
+            <div class="col">
+              <label class="form-label">Início *</label>
+              <input type="time" name="start_time" class="form-control" required>
+            </div>
+            <div class="col">
+              <label class="form-label">Fim *</label>
+              <input type="time" name="end_time" class="form-control" required>
+            </div>
+          </div>
+          <div class="mt-2 text-muted small">
+            <i class="bi bi-info-circle me-1"></i>
+            Antes das 12h → Manhã · 12h–18h → Tarde · a partir das 18h → Noite
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

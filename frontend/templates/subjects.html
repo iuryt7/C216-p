@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}Matérias — SemestreApp{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="fw-bold mb-0">Matérias</h2>
+  <div class="d-flex gap-2">
+    <form method="POST" onsubmit="return confirm('Arquivar todas as matérias ativas? Elas ficarão no histórico e não poderão ser editadas.')">
+      <input type="hidden" name="action" value="arquivar_semestre">
+      <button type="submit" class="btn btn-outline-warning btn-sm">
+        <i class="bi bi-archive me-1"></i>Arquivar Semestre
+      </button>
+    </form>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addModal">
+      <i class="bi bi-plus-circle me-1"></i>Nova Matéria
+    </button>
+  </div>
+</div>
+
+<!-- Controles de ordenação -->
+<div class="d-flex gap-2 align-items-center mb-3">
+  <select id="sortField" class="form-select form-select-sm w-auto">
+    <option value="name">Ordenar por: Nome</option>
+    <option value="num_exams">Ordenar por: Avaliações</option>
+  </select>
+  <button id="sortDirBtn" class="btn btn-sm btn-outline-secondary" title="Alternar direção">
+    <i class="bi bi-sort-alpha-down" id="sortDirIcon"></i>
+  </button>
+</div>
+
+{% if subjects %}
+<div id="subjectsGrid" class="row g-3">
+  {% for s in subjects %}
+  <div class="col-md-6 col-lg-4 subject-card"
+       data-name="{{ s.name | lower }}"
+       data-num-exams="{{ s.num_exams }}">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center mb-2">
+          <span class="color-dot me-2" style="background:{{ s.color_hex }}"></span>
+          <h5 class="card-title mb-0">{{ s.name }}</h5>
+        </div>
+        {% if s.teacher %}<p class="text-muted small mb-1"><i class="bi bi-person me-1"></i>{{ s.teacher }}</p>{% endif %}
+        {% if s.semester or s.year %}
+          <p class="text-muted small mb-1">
+            {% if s.semester %}{{ s.semester }}º semestre{% endif %}
+            {% if s.year %} · {{ s.year }}{% endif %}
+          </p>
+        {% endif %}
+        <p class="text-muted small mb-0">
+          <i class="bi bi-file-text me-1"></i>{{ s.num_exams }} avaliações
+        </p>
+        {% if s.nps %}
+          <div class="mt-2">
+            {% for np in s.nps %}
+              {% if np.exam_date %}
+                <span class="badge bg-light text-dark border me-1" style="font-size:0.7rem">
+                  NP{{ np.np_number }}: {{ np.exam_date }}
+                </span>
+              {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+      <div class="card-footer bg-transparent border-0 d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal"
+                data-bs-target="#editModal"
+                data-id="{{ s.id }}" data-name="{{ s.name }}"
+                data-teacher="{{ s.teacher or '' }}" data-color="{{ s.color_hex }}"
+                data-semester="{{ s.semester or '' }}" data-year="{{ s.year or '' }}"
+                data-num-exams="{{ s.num_exams }}">
+          <i class="bi bi-pencil"></i> Editar
+        </button>
+        <form method="POST" onsubmit="return confirm('Remover matéria e todos os dados relacionados?')">
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="subject_id" value="{{ s.id }}">
+          <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i></button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-book display-4"></i>
+  <p class="mt-2">Nenhuma matéria ativa. Adicione uma nova ou confira o histórico abaixo.</p>
+</div>
+{% endif %}
+
+<!-- Histórico de semestres arquivados -->
+{% if semestres_arquivados %}
+<div class="mt-5">
+  <h5 class="fw-semibold mb-3 text-muted">
+    <i class="bi bi-archive me-1"></i>Semestres Anteriores
+  </h5>
+  {% for grupo in semestres_arquivados %}
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-light border-0 d-flex justify-content-between align-items-center"
+         style="cursor:pointer" data-bs-toggle="collapse"
+         data-bs-target="#historico-{{ loop.index }}">
+      <span class="fw-semibold">
+        {% if grupo.semestre and grupo.ano %}
+          {{ grupo.semestre }}º Semestre de {{ grupo.ano }}
+        {% elif grupo.ano %}
+          {{ grupo.ano }}
+        {% else %}
+          Semestre sem data
+        {% endif %}
+      </span>
+      <span class="badge bg-secondary">{{ grupo.materias | length }} matéria(s)</span>
+    </div>
+    <div class="collapse" id="historico-{{ loop.index }}">
+      <div class="card-body">
+        <div class="row g-2">
+          {% for m in grupo.materias %}
+          <div class="col-md-6 col-lg-4">
+            <div class="card border-0 bg-light h-100">
+              <div class="card-body py-2">
+                <div class="d-flex align-items-center mb-1">
+                  <span class="color-dot me-2" style="background:{{ m.color_hex }}"></span>
+                  <span class="fw-semibold small">{{ m.name }}</span>
+                </div>
+                {% if m.teacher %}<div class="text-muted" style="font-size:.75rem"><i class="bi bi-person me-1"></i>{{ m.teacher }}</div>{% endif %}
+                <div class="text-muted" style="font-size:.75rem"><i class="bi bi-file-text me-1"></i>{{ m.num_exams }} avaliações</div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Modal: Adicionar -->
+<div class="modal fade" id="addModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST">
+        <input type="hidden" name="action" value="create">
+        <div class="modal-header">
+          <h5 class="modal-title">Nova Matéria</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nome *</label>
+            <input type="text" name="name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Professor</label>
+            <input type="text" name="teacher" class="form-control">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col">
+              <label class="form-label">Semestre</label>
+              <select name="semester" class="form-select">
+                <option value="">—</option>
+                <option value="1">1º</option>
+                <option value="2">2º</option>
+              </select>
+            </div>
+            <div class="col">
+              <label class="form-label">Ano</label>
+              <input type="number" name="year" class="form-control" min="2000">
+            </div>
+            <div class="col">
+              <label class="form-label">Nº de NPs</label>
+              <input type="number" name="num_exams" class="form-control" min="1" max="10" value="2">
+            </div>
+            <div class="col-auto">
+              <label class="form-label">Cor</label>
+              <input type="color" name="color_hex" class="form-control form-control-color" value="#4f46e5">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST">
+        <input type="hidden" name="action" value="update">
+        <input type="hidden" name="subject_id" id="edit-id">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar Matéria</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nome *</label>
+            <input type="text" name="name" id="edit-name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Professor</label>
+            <input type="text" name="teacher" id="edit-teacher" class="form-control">
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col">
+              <label class="form-label">Semestre</label>
+              <select name="semester" id="edit-semester" class="form-select">
+                <option value="">—</option>
+                <option value="1">1º</option>
+                <option value="2">2º</option>
+              </select>
+            </div>
+            <div class="col">
+              <label class="form-label">Ano</label>
+              <input type="number" name="year" id="edit-year" class="form-control" min="2000">
+            </div>
+            <div class="col">
+              <label class="form-label">Nº de NPs</label>
+              <input type="number" name="num_exams" id="edit-num-exams" class="form-control" min="1" max="10">
+            </div>
+            <div class="col-auto">
+              <label class="form-label">Cor</label>
+              <input type="color" name="color_hex" id="edit-color" class="form-control form-control-color">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// Ordenação de matérias
+let sortDir = 'asc';
+
+function ordenarMaterias() {
+  const campo = document.getElementById('sortField').value;
+  const grid = document.getElementById('subjectsGrid');
+  if (!grid) return;
+  const cards = Array.from(grid.querySelectorAll('.subject-card'));
+  cards.sort((a, b) => {
+    let va = a.dataset[campo === 'num_exams' ? 'numExams' : 'name'];
+    let vb = b.dataset[campo === 'num_exams' ? 'numExams' : 'name'];
+    if (campo === 'num_exams') {
+      va = parseInt(va); vb = parseInt(vb);
+      return sortDir === 'asc' ? va - vb : vb - va;
+    } else {
+      return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+  });
+  cards.forEach(c => grid.appendChild(c));
+
+  const icon = document.getElementById('sortDirIcon');
+  icon.className = campo === 'num_exams'
+    ? (sortDir === 'asc' ? 'bi bi-sort-numeric-down' : 'bi bi-sort-numeric-up')
+    : (sortDir === 'asc' ? 'bi bi-sort-alpha-down' : 'bi bi-sort-alpha-up');
+}
+
+document.getElementById('sortField').addEventListener('change', ordenarMaterias);
+document.getElementById('sortDirBtn').addEventListener('click', () => {
+  sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+  ordenarMaterias();
+});
+
+const editModal = document.getElementById('editModal');
+editModal.addEventListener('show.bs.modal', e => {
+  const btn = e.relatedTarget;
+  document.getElementById('edit-id').value = btn.dataset.id;
+  document.getElementById('edit-name').value = btn.dataset.name;
+  document.getElementById('edit-teacher').value = btn.dataset.teacher;
+  document.getElementById('edit-color').value = btn.dataset.color;
+  document.getElementById('edit-semester').value = btn.dataset.semester;
+  document.getElementById('edit-year').value = btn.dataset.year;
+  document.getElementById('edit-num-exams').value = btn.dataset.numExams;
+});
+
+</script>
+{% endblock %}
