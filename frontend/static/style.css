@@ -11,17 +11,20 @@ body {
 }
 
 /* Calendar */
+.calendar-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
 .calendar-table th,
 .calendar-table td {
   width: 14.28%;
-  min-height: 90px;
   vertical-align: top;
   padding: 6px;
 }
 
 .calendar-cell {
-  height: 90px;
-  overflow: hidden;
+  min-height: 120px;
 }
 
 .today-cell {
@@ -40,22 +43,31 @@ body {
   padding: 1px 4px;
   border-radius: 2px;
   margin-bottom: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Schedule */
+.schedule-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
 .schedule-col {
-  min-width: 110px;
+  width: 14.28%;
+  min-height: 120px;
   vertical-align: top;
   padding: 8px;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .schedule-entry {
   background: #f0f4ff;
   border-radius: 4px;
   padding: 4px 6px;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Cards */
