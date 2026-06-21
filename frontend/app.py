@@ -181,9 +181,20 @@ def subjects():
 
 @app.route("/grades", methods=["GET", "POST"])
 def grades():
+    semestre_key = request.args.get("semestre_key")
+    if semestre_key is not None:
+        session["semestre_key"] = semestre_key
+    else:
+        semestre_key = session.get("semestre_key", "ativo")
+
+    is_historico = semestre_key != "ativo"
+    params_sem = _params_api_semestre(semestre_key)
+    semestres = _semestres_disponiveis()
+    semestre_label = next((s["label"] for s in semestres if s["key"] == semestre_key), "Semestre Atual")
+
     if request.method == "POST":
         acao = request.form.get("action")
-        if acao == "create":
+        if acao == "create" and not is_historico:
             dados = {
                 "value": float(request.form["value"]),
                 "grade_type": request.form["grade_type"],
@@ -193,7 +204,7 @@ def grades():
             }
             _, err = api_post("/api/notas/", dados)
             flash("Nota adicionada!" if not err else f"Erro: {err}", "success" if not err else "danger")
-        elif acao == "update":
+        elif acao == "update" and not is_historico:
             nota_id = request.form["nota_id"]
             dados = {
                 "value": float(request.form["value"]),
@@ -204,27 +215,30 @@ def grades():
             }
             _, err = api_put(f"/api/notas/{nota_id}", dados)
             flash("Nota atualizada!" if not err else f"Erro: {err}", "success" if not err else "danger")
-        elif acao == "delete":
+        elif acao == "delete" and not is_historico:
             api_delete(f"/api/notas/{request.form['grade_id']}")
             flash("Nota removida!", "success")
         return redirect(url_for("grades"))
 
-    todas_materias = api_get("/api/materias/")
+    todas_materias = api_get("/api/materias/", params=params_sem)
     subject_id = request.args.get("subject_id")
-    params = {"subject_id": subject_id} if subject_id else None
-    todas_notas = api_get("/api/notas/", params=params)
-    medias = api_get("/api/notas/medias")
+    params_notas = dict(params_sem)
+    if subject_id:
+        params_notas["subject_id"] = subject_id
+    todas_notas = api_get("/api/notas/", params=params_notas)
+    medias = api_get("/api/notas/medias", params=params_sem)
 
-    # Monta dicionário {materia_id: set(grade_types já lançados)} para o JS
     notas_por_materia: dict = {}
-    for nota in api_get("/api/notas/"):
+    for nota in api_get("/api/notas/", params=params_sem):
         sid = nota["subject_id"]
         notas_por_materia.setdefault(sid, [])
         notas_por_materia[sid].append(nota["grade_type"])
 
     return render_template("grades.html", subjects=todas_materias, grades=todas_notas,
                            averages=medias, selected_subject=subject_id,
-                           notas_por_materia=notas_por_materia)
+                           notas_por_materia=notas_por_materia,
+                           semestres=semestres, semestre_key=semestre_key,
+                           semestre_label=semestre_label, is_historico=is_historico)
 
 
 @app.route("/calendar", methods=["GET", "POST"])

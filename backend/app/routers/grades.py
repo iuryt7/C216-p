@@ -70,6 +70,20 @@ def todas_as_medias(
     semestre: Optional[int] = Query(None),
     db: Session = Depends(get_db),
 ):
+    """
+    Retorna a situação de aprovação de cada matéria do semestre selecionado.
+
+    - **arquivado=false** (padrão): somente matérias do semestre ativo.
+    - **arquivado=true + ano + semestre**: matérias de um semestre arquivado específico.
+
+    Cada item retorna:
+    - `average`: média simples das NPs lançadas (null se incompleto).
+    - `status`: `aprovado` | `final` | `reprovado` | `aprovado_final` | `reprovado_final` | null.
+    - `final_needed`: nota mínima necessária no Exame Final para aprovação.
+    - `nota_final` / `media_final`: resultado do Exame Final quando lançado.
+    - `min_necessaria`: nota mínima nas NPs restantes para ainda poder passar.
+    - `impossivel_aprovar`: true se mesmo com 100 nas NPs restantes não é possível atingir 60.
+    """
     query = db.query(models.Subject).filter(models.Subject.is_arquivado == arquivado)
     if ano is not None:
         query = query.filter(models.Subject.year == ano)
@@ -85,8 +99,31 @@ def todas_as_medias(
 
 
 @router.get("/", response_model=List[schemas.GradeOut], summary="Listar notas")
-def listar_notas(subject_id: Optional[int] = None, db: Session = Depends(get_db)):
-    consulta = db.query(models.Grade)
+def listar_notas(
+    subject_id: Optional[int] = None,
+    arquivado: bool = Query(False),
+    ano: Optional[int] = Query(None),
+    semestre: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Lista todas as notas lançadas, com filtro opcional por matéria e semestre.
+
+    - **subject_id**: filtra notas de uma única matéria.
+    - **arquivado=false** (padrão): notas de matérias do semestre ativo.
+    - **arquivado=true + ano + semestre**: notas de um semestre arquivado específico.
+
+    Cada nota inclui os dados completos da matéria associada (`subject`).
+    """
+    consulta = (
+        db.query(models.Grade)
+        .join(models.Subject)
+        .filter(models.Subject.is_arquivado == arquivado)
+    )
+    if ano is not None:
+        consulta = consulta.filter(models.Subject.year == ano)
+    if semestre is not None:
+        consulta = consulta.filter(models.Subject.semester == semestre)
     if subject_id:
         consulta = consulta.filter(models.Grade.subject_id == subject_id)
     return consulta.all()
@@ -94,6 +131,15 @@ def listar_notas(subject_id: Optional[int] = None, db: Session = Depends(get_db)
 
 @router.post("/", response_model=schemas.GradeOut, status_code=201, summary="Inserir nota")
 def inserir_nota(dados: schemas.GradeCreate, db: Session = Depends(get_db)):
+    """
+    Insere uma nota para uma matéria.
+
+    - **grade_type**: `NP1`, `NP2`, `NP3`… ou `Exame Final`.
+    - **value**: valor de 0 a 100.
+    - Retorna 409 se já existir nota do mesmo tipo para a mesma matéria.
+    - O tipo `Exame Final` só altera a situação quando todas as NPs da matéria já foram lançadas
+      e a média NP ficou entre 30 e 60 (condição de exame final).
+    """
     materia = db.query(models.Subject).filter(models.Subject.id == dados.subject_id).first()
     if not materia:
         raise HTTPException(status_code=404, detail="Matéria não encontrada.")
@@ -112,6 +158,12 @@ def inserir_nota(dados: schemas.GradeCreate, db: Session = Depends(get_db)):
 
 @router.put("/{nota_id}", response_model=schemas.GradeOut, summary="Atualizar nota")
 def atualizar_nota(nota_id: int, dados: schemas.GradeCreate, db: Session = Depends(get_db)):
+    """
+    Atualiza valor, data, observação ou tipo de uma nota já lançada.
+
+    - Retorna 404 se a nota não existir.
+    - Retorna 409 se já existir outra nota do mesmo tipo na mesma matéria (duplicata).
+    """
     nota = db.query(models.Grade).filter(models.Grade.id == nota_id).first()
     if not nota:
         raise HTTPException(status_code=404, detail="Nota não encontrada.")
@@ -131,6 +183,12 @@ def atualizar_nota(nota_id: int, dados: schemas.GradeCreate, db: Session = Depen
 
 @router.delete("/{nota_id}", status_code=204, summary="Remover nota")
 def remover_nota(nota_id: int, db: Session = Depends(get_db)):
+    """
+    Remove permanentemente uma nota lançada.
+
+    - Retorna 404 se a nota não existir.
+    - Retorna 204 (sem corpo) em caso de sucesso.
+    """
     nota = db.query(models.Grade).filter(models.Grade.id == nota_id).first()
     if not nota:
         raise HTTPException(status_code=404, detail="Nota não encontrada.")
@@ -140,4 +198,4 @@ def remover_nota(nota_id: int, db: Session = Depends(get_db)):
 
 @router.get("/averages/all", include_in_schema=False)
 def todas_as_medias_legado(db: Session = Depends(get_db)):
-    return todas_as_medias(db)
+    return todas_as_medias(db=db)
