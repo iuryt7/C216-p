@@ -54,12 +54,21 @@
                   {% else %}
                     {% set cor = "secondary" %}{% set sigla = "O" %}
                   {% endif %}
-                  <div class="exam-badge exam-{{ evento.tipo_evento }} d-flex align-items-center justify-content-between">
-                    <span class="text-truncate">
+                  <div class="exam-badge exam-{{ evento.tipo_evento }} d-flex align-items-start justify-content-between gap-1">
+                    <span {% if evento.description %}
+                          data-bs-toggle="popover"
+                          data-bs-trigger="click"
+                          data-bs-placement="top"
+                          data-bs-content="{{ evento.description }}"
+                          data-bs-title="Observação"
+                          tabindex="0"
+                          style="cursor:pointer"
+                          {% endif %}>
                       <span class="badge bg-{{ cor }} me-1" style="font-size:0.6rem">{{ sigla }}</span>
                       {{ evento.title }}
+                      {% if evento.description %}<i class="bi bi-chat-left-dots ms-1" style="font-size:0.6rem;opacity:.6"></i>{% endif %}
                     </span>
-                    <form method="POST" class="d-inline ms-1" onsubmit="return confirm('Remover evento?')">
+                    <form method="POST" class="d-inline flex-shrink-0" onsubmit="return confirm('Remover evento?')">
                       <input type="hidden" name="action" value="delete">
                       <input type="hidden" name="evento_id" value="{{ evento.id }}">
                       <input type="hidden" name="year" value="{{ year }}">
@@ -210,5 +219,21 @@ document.getElementById('eventForm').addEventListener('submit', function (e) {
 
 // Inicializar estado
 atualizarModal();
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Popovers de observação (inicializa após Bootstrap carregar)
+document.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
+  new bootstrap.Popover(el, { html: false });
+});
+// Fechar popover ao clicar fora
+document.addEventListener('click', e => {
+  document.querySelectorAll('[data-bs-toggle="popover"]').forEach(el => {
+    const p = bootstrap.Popover.getInstance(el);
+    if (p && !el.contains(e.target)) p.hide();
+  });
+});
 </script>
 {% endblock %}
